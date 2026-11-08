@@ -98,12 +98,14 @@ st.markdown(
     html, body, [class*="css"] { font-family: sans-serif; }
     .stApp { background: #f7f8fa; color: #202733; }
     [data-testid="stHeader"] { background: rgba(247, 248, 250, 0.9); }
-    [data-testid="stSidebar"] { background: #ffffff; border-right: 1px solid #e8ebef; }
+    [data-testid="stSidebar"] {
+        background: #e9eef4; border-right: 1px solid #d5dde7; color: #202733;
+    }
     [data-testid="stMetric"] {
-        background: #000000; border: 1px solid #e8ebef; border-radius: 12px;
+        background: #e9eef4; border: 1px solid #d5dde7; border-radius: 12px;
         padding: 18px 20px;
     }
-    [data-testid="stMetricLabel"] { color: #707987; }
+    [data-testid="stMetricLabel"] { color: #536174; }
     [data-testid="stMetricValue"] { color: #202733; }
     h1 { letter-spacing: -0.04em; font-weight: 600 !important; }
     h2, h3 { letter-spacing: -0.02em; }
@@ -198,12 +200,15 @@ with left_chart:
             showlegend=False,
             xaxis_title="Responses",
             yaxis_title=None,
-            plot_bgcolor="white",
-            paper_bgcolor="white",
-            font_color="#596273",
+            plot_bgcolor="#f7f8fa",
+            paper_bgcolor="#e9eef4",
+            font_color="#202733",
         )
-        tool_chart.update_xaxes(showgrid=True, gridcolor="#edf0f3", zeroline=False)
-        tool_chart.update_yaxes(showgrid=False)
+        tool_chart.update_xaxes(
+            showgrid=True, gridcolor="#dfe5ec", zeroline=False,
+            tickfont_color="#202733", title_font_color="#202733",
+        )
+        tool_chart.update_yaxes(showgrid=False, tickfont_color="#202733")
         st.plotly_chart(tool_chart, use_container_width=True)
 
 with right_chart:
@@ -230,12 +235,15 @@ with right_chart:
             showlegend=False,
             xaxis_title="Responses",
             yaxis_title=None,
-            plot_bgcolor="white",
-            paper_bgcolor="white",
-            font_color="#596273",
+            plot_bgcolor="#f7f8fa",
+            paper_bgcolor="#e9eef4",
+            font_color="#202733",
         )
-        purpose_chart.update_xaxes(showgrid=True, gridcolor="#edf0f3", zeroline=False)
-        purpose_chart.update_yaxes(showgrid=False)
+        purpose_chart.update_xaxes(
+            showgrid=True, gridcolor="#dfe5ec", zeroline=False,
+            tickfont_color="#202733", title_font_color="#202733",
+        )
+        purpose_chart.update_yaxes(showgrid=False, tickfont_color="#202733")
         st.plotly_chart(purpose_chart, use_container_width=True)
 
 st.markdown("")
@@ -266,13 +274,19 @@ with lower_left:
         scatter_chart.update_layout(
             height=350,
             margin=dict(l=4, r=10, t=10, b=10),
-            plot_bgcolor="white",
-            paper_bgcolor="white",
-            font_color="#596273",
+            plot_bgcolor="#f7f8fa",
+            paper_bgcolor="#e9eef4",
+            font_color="#202733",
             legend_title_text="",
         )
-        scatter_chart.update_xaxes(showgrid=True, gridcolor="#edf0f3", rangemode="tozero")
-        scatter_chart.update_yaxes(showgrid=True, gridcolor="#edf0f3", rangemode="tozero")
+        scatter_chart.update_xaxes(
+            showgrid=True, gridcolor="#dfe5ec", rangemode="tozero",
+            tickfont_color="#202733", title_font_color="#202733",
+        )
+        scatter_chart.update_yaxes(
+            showgrid=True, gridcolor="#dfe5ec", rangemode="tozero",
+            tickfont_color="#202733", title_font_color="#202733",
+        )
         st.plotly_chart(scatter_chart, use_container_width=True)
 
 with lower_right:
@@ -303,12 +317,15 @@ with lower_right:
             showlegend=False,
             xaxis_range=[0, 10],
             yaxis_title=None,
-            plot_bgcolor="white",
-            paper_bgcolor="white",
-            font_color="#596273",
+            plot_bgcolor="#f7f8fa",
+            paper_bgcolor="#e9eef4",
+            font_color="#202733",
         )
-        satisfaction_chart.update_xaxes(showgrid=True, gridcolor="#edf0f3", zeroline=False)
-        satisfaction_chart.update_yaxes(showgrid=False)
+        satisfaction_chart.update_xaxes(
+            showgrid=True, gridcolor="#dfe5ec", zeroline=False,
+            tickfont_color="#202733", title_font_color="#202733",
+        )
+        satisfaction_chart.update_yaxes(showgrid=False, tickfont_color="#202733")
         st.plotly_chart(satisfaction_chart, use_container_width=True)
 
 with st.expander("View filtered responses"):

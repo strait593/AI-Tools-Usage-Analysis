@@ -2,6 +2,10 @@
 
 A minimal Streamlit dashboard for the survey dataset in `data/`.
 
+# The Dataset
+Dataset used for analysis -> https://www.kaggle.com/datasets/eishatuzzuhra/ai-usage-and-impact-on-students-and-professionals
+
+It is a survey about the AI usage both in professional use as well as among students.
 ## Run locally
 
 ```bash
