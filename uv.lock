@@ -493,6 +493,12 @@ wheels = [
 ]
 
 [[package]]
+name = "learn"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/cc/2c/0d77289eeec494c024ff0f7412b5d8b0dbe0b3432cb7b6cab75773438500/learn-1.0.0.zip", hash = "sha256:46ba34870ae8fc3f6e70ce30f44a10a07540b332da7a33202dbbdf3c65874043", size = 818, upload-time = "2013-10-28T21:06:09.051Z" }
+
+[[package]]
 name = "markupsafe"
 version = "3.0.4"
 source = { registry = "https://pypi.org/simple" }
@@ -658,22 +664,28 @@ name = "neural-nets-usage-analysis"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "learn" },
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "plotly" },
+    { name = "sci-kit" },
     { name = "scikit-learn" },
+    { name = "scipy" },
     { name = "seaborn" },
     { name = "streamlit" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "learn", specifier = ">=1.0.0" },
     { name = "matplotlib", specifier = ">=3.11.2" },
     { name = "numpy", specifier = ">=2.5.4" },
     { name = "pandas", specifier = ">=3.1.1" },
     { name = "plotly", specifier = ">=7.1.0" },
+    { name = "sci-kit", specifier = ">=0.1.0" },
     { name = "scikit-learn", specifier = ">=1.9.1" },
+    { name = "scipy", specifier = ">=1.18.1" },
     { name = "seaborn", specifier = ">=0.13.2" },
     { name = "streamlit", specifier = ">=1.67.0" },
 ]
@@ -1085,6 +1097,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/af/9e/418094adaee6b056ce199051b255448ed872829051e341b2294c80da0977/rpds_py-2026.9.1-cp315-cp315t-musllinux_1_2_x86_64.whl", hash = "sha256:1c2d1f6da5128eabf34e963d7163a818846075a52568250d006c4c953b40f903", size = 582764, upload-time = "2026-10-04T16:31:36.665Z" },
     { url = "https://files.pythonhosted.org/packages/3d/9b/1698ebf6b840ddfe8b472198abbed6ace35c6e398faeecd6c47dae742a4e/rpds_py-2026.9.1-cp315-cp315t-win32.whl", hash = "sha256:5c6ee90dee3e85e055ddfd502d611643d9b0fd94c818220bda84ec3dacd9b27b", size = 203795, upload-time = "2026-10-04T16:31:38.53Z" },
     { url = "https://files.pythonhosted.org/packages/8a/e2/91f70d804c61f8eac39a417e82aa1024f655ab9e8bdd7393b196242bc41b/rpds_py-2026.9.1-cp315-cp315t-win_amd64.whl", hash = "sha256:fe5ad0664ec772b02c45859041aa17655709cced7a31005817fbbbd988c25567", size = 223037, upload-time = "2026-10-04T16:31:40.468Z" },
+]
+
+[[package]]
+name = "sci-kit"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pandas" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1e/1e/c626aa21a06c4a131a53470cd67f15751afd7df8acd1e65d3afa8a282c83/sci_kit-0.1.0.tar.gz", hash = "sha256:72e7fd5fa919381f06a28458df321c5aced0dd0e1a347be9fde1055cd9194bca", size = 2850, upload-time = "2025-08-17T15:04:43.812Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/96/e6/425383c6e7590a682af0b41739374ed1551d13924e348b05e90ade6cc22c/sci_kit-0.1.0-py3-none-any.whl", hash = "sha256:9fd52a8aa7c90294931ac5a6dacf2691ba7700071e726e391b905585a45e507d", size = 3178, upload-time = "2025-08-17T15:04:42.657Z" },
 ]
 
 [[package]]
