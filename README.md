@@ -1,18 +1,16 @@
-# AI Usage Dashboard
+# AI Tools Usage Analysis
 
-A minimal Streamlit dashboard for the survey dataset in `data/`.
+A Streamlit dashboard for exploring survey responses about AI tool use by students
+and professionals.
 
-# The Dataset
-Dataset used for analysis -> https://www.kaggle.com/datasets/eishatuzzuhra/ai-usage-and-impact-on-students-and-professionals
-
-It is a survey about the AI usage both in professional use as well as among students.
 ## Run locally
 
 ```bash
 python -m pip install -r requirements.txt
-streamlit run app.py
+streamlit run dashboard.py
 ```
 
-Use the sidebar to filter by user type, country, and AI tool. Metrics and charts
-update together, and the response table can be downloaded after filtering.
-# AI-Tools-analysis
+The dashboard loads the cleaned CSV from `data/` when available. If it is missing,
+the raw survey CSV is cleaned before use. Use the sidebar filters to explore
+respondents by user type, country, AI tool, purpose, and gender. The Responses tab
+lets you download the filtered responses or the summary by tool.

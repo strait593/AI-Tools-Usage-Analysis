@@ -1,339 +1,377 @@
 from pathlib import Path
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-
-DATA_PATH = (
-    Path(__file__).resolve().parent
-    / "data"
-    / "AI_Usage_and_Impact_on_Students_and_Professionals.csv"
-)
-
-NUMERIC_COLUMNS = [
-    "Age",
-    "Monthly_Income",
-    "Monthly_AI_Cost",
-    "AI_Usage_Hours_Per_Day",
-    "Productivity_Score",
-    "Accuracy_Rating",
-    "Satisfaction_Score",
-    "Time_Saved_Hours_Per_Week",
-    "Work_or_Study_Hours_Per_Day",
-]
-
-CATEGORY_COLUMNS = [
-    "Country",
-    "User_Type",
-    "AI_Tool",
-    "AI_Purpose",
-    "Would_Recommend",
-]
-
-REQUIRED_COLUMNS = {
-    "User_ID",
-    "Country",
-    "User_Type",
-    "AI_Tool",
-    "AI_Purpose",
-    "AI_Usage_Hours_Per_Day",
-    "Productivity_Score",
-    "Satisfaction_Score",
-    "Time_Saved_Hours_Per_Week",
-    "Would_Recommend",
-}
-
-TOOL_ALIASES = {
-    "chat gpt": "ChatGPT",
-    "claude": "Claude",
-    "copilot": "Microsoft Copilot",
-    "microsoft copilot": "Microsoft Copilot",
-    "gemini": "Google Gemini",
-    "google gemini": "Google Gemini",
-}
-
-CHART_COLORS = ["#4F7CAC", "#67A88A", "#E0A458", "#8B79B8", "#D7796B"]
-
-
-@st.cache_data
-def load_data() -> pd.DataFrame:
-    if not DATA_PATH.is_file():
-        raise FileNotFoundError(f"Dataset not found: {DATA_PATH}")
-
-    data = pd.read_csv(DATA_PATH)
-    missing_columns = REQUIRED_COLUMNS.difference(data.columns)
-    if missing_columns:
-        missing = ", ".join(sorted(missing_columns))
-        raise ValueError(f"Dataset is missing required columns: {missing}")
-
-    for column in NUMERIC_COLUMNS:
-        if column in data.columns:
-            values = data[column].astype("string").str.replace(",", "", regex=False)
-            numbers = values.str.extract(r"([-+]?\d*\.?\d+)")[0]
-            data[column] = pd.to_numeric(numbers, errors="coerce")
-
-    for column in CATEGORY_COLUMNS:
-        data[column] = data[column].astype("string").str.strip()
-        data[column] = data[column].replace("", pd.NA).fillna("Not specified")
-
-    normalized_tools = data["AI_Tool"].str.casefold()
-    data["AI_Tool"] = normalized_tools.map(TOOL_ALIASES).fillna(data["AI_Tool"])
-    return data
-
-
-def format_hours(value: float) -> str:
-    return f"{value:.1f} hrs" if pd.notna(value) else "—"
-
+from scripts.data_cleaning import DATA_ROOT, clean_dataset
 
 st.set_page_config(
-    page_title="AI Usage Dashboard",
-    page_icon="✳",
+    page_title="AI Tools Usage Analysis",
+    page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded",
 )
 
 st.markdown(
     """
     <style>
-    html, body, [class*="css"] { font-family: sans-serif; }
-    .stApp { background: #f7f8fa; color: #202733; }
-    [data-testid="stHeader"] { background: rgba(247, 248, 250, 0.9); }
-    [data-testid="stSidebar"] {
-        background: #e9eef4; border-right: 1px solid #d5dde7; color: #202733;
-    }
-    [data-testid="stMetric"] {
-        background: #e9eef4; border: 1px solid #d5dde7; border-radius: 12px;
-        padding: 18px 20px;
-    }
-    [data-testid="stMetricLabel"] { color: #536174; }
-    [data-testid="stMetricValue"] { color: #202733; }
-    h1 { letter-spacing: -0.04em; font-weight: 600 !important; }
-    h2, h3 { letter-spacing: -0.02em; }
-    .eyebrow {
-        color: #4F7CAC; text-transform: uppercase; letter-spacing: .12em;
-        font-size: .75rem; font-weight: 700; margin-bottom: .35rem;
-    }
-    .subtle { color: #707987; }
+        :root {
+            --bg: #f5f7fb;
+            --text: #172033;
+            --muted: #6b7280;
+            --border: #e5e7eb;
+        }
+
+        .stApp {
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .block-container {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+
+        div[data-testid="stSidebar"] {
+            background: #eff4f9;
+            border-right: 1px solid var(--border);
+        }
+
+        .section-subtitle {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-try:
-    df = load_data()
-except (FileNotFoundError, ValueError, pd.errors.ParserError) as error:
-    st.error(f"Could not load the dashboard dataset: {error}")
+CLEANED_FILE = DATA_ROOT / "AI_Usage_and_Impact_on_Students_and_Professionals_cleaned.csv"
+RAW_FILE = DATA_ROOT / "AI_Usage_and_Impact_on_Students_and_Professionals.csv"
+DATA_FILE = CLEANED_FILE if CLEANED_FILE.is_file() else RAW_FILE
+
+if not DATA_FILE.is_file():
+    st.error(f"Survey data file not found: {DATA_FILE}")
     st.stop()
 
-st.sidebar.markdown("## Explore the data")
-st.sidebar.caption("Filters update every metric and chart.")
 
-filter_columns = [
-    ("User type", "User_Type"),
-    ("Country", "Country"),
-    ("AI tool", "AI_Tool"),
-]
-selections: dict[str, list[str]] = {}
-for label, column in filter_columns:
-    options = sorted(df[column].unique().tolist())
-    selections[column] = st.sidebar.multiselect(
-        label,
-        options,
-        default=options,
-        help=f"Choose one or more {label.lower()} values.",
-    )
+@st.cache_data(show_spinner="Loading survey responses...")
+def load_responses(file_path: str) -> pd.DataFrame:
+    data = pd.read_csv(file_path)
+    if Path(file_path).name == RAW_FILE.name:
+        data = clean_dataset(data)
+    return data
 
-filtered = df.copy()
-for column, selected in selections.items():
-    filtered = filtered[filtered[column].isin(selected)]
 
-st.markdown('<div class="eyebrow">AI usage · survey overview</div>', unsafe_allow_html=True)
-st.title("How people use AI")
+responses = load_responses(str(DATA_FILE))
+required_columns = {
+    "User_ID",
+    "User_Type",
+    "Country",
+    "Gender",
+    "AI_Tool",
+    "AI_Purpose",
+    "Satisfaction_Score",
+    "Time_Saved_Hours_Per_Week",
+    "AI_Usage_Hours_Per_Day",
+    "Productivity_Score",
+    "Accuracy_Rating",
+    "Would_Recommend",
+}
+missing_columns = sorted(required_columns.difference(responses.columns))
+if missing_columns:
+    st.error(f"The survey file is missing required columns: {', '.join(missing_columns)}")
+    st.stop()
+
+
+def normalize_category(
+    values: pd.Series, aliases: dict[str, str] | None = None
+) -> pd.Series:
+    cleaned = values.astype("string").str.strip()
+    display_values = cleaned.str.title()
+    if aliases:
+        display_values = cleaned.str.casefold().map(aliases).fillna(display_values)
+    return display_values
+
+
+responses["User_Type"] = normalize_category(responses["User_Type"])
+responses["Country"] = normalize_category(responses["Country"])
+responses["Gender"] = normalize_category(
+    responses["Gender"],
+    {"m": "Male", "f": "Female", "non binary": "Non-binary"},
+)
+responses["AI_Tool"] = normalize_category(
+    responses["AI_Tool"],
+    {
+        "chat gpt": "ChatGPT",
+        "chatgpt": "ChatGPT",
+        "google gemini": "Gemini",
+        "gemini": "Gemini",
+        "microsoft copilot": "Microsoft Copilot",
+        "copilot": "Microsoft Copilot",
+        "perplexity ai": "Perplexity AI",
+        "meta ai": "Meta AI",
+        "deepseek": "DeepSeek",
+    },
+)
+responses["AI_Purpose"] = normalize_category(responses["AI_Purpose"])
+responses["Would_Recommend"] = normalize_category(responses["Would_Recommend"])
+
+st.title("AI Tools Usage Analysis")
 st.markdown(
-    '<p class="subtle">A snapshot of AI adoption, productivity, and sentiment '
-    "among students and professionals.</p>",
+    f"<div class='section-subtitle'>Explore {len(responses):,} survey responses "
+    "on AI tool adoption, experience, and reported outcomes.</div>",
     unsafe_allow_html=True,
 )
-
-if filtered.empty:
-    st.info("No responses match these filters. Select at least one value in each filter.")
-    st.stop()
-
-respondents = filtered["User_ID"].nunique()
-avg_usage = filtered["AI_Usage_Hours_Per_Day"].mean()
-avg_time_saved = filtered["Time_Saved_Hours_Per_Week"].mean()
-avg_satisfaction = filtered["Satisfaction_Score"].mean()
-
-metric_columns = st.columns(4)
-metric_columns[0].metric("Respondents", f"{respondents:,}")
-metric_columns[1].metric("Daily AI use", format_hours(avg_usage))
-metric_columns[2].metric("Time saved / week", format_hours(avg_time_saved))
-metric_columns[3].metric(
-    "Satisfaction",
-    f"{avg_satisfaction:.1f} / 10" if pd.notna(avg_satisfaction) else "—",
+st.caption(
+    f"Source: {DATA_FILE.name}. This is survey data, so charts compare respondents "
+    "rather than showing changes over time."
 )
 
-st.markdown("")
-left_chart, right_chart = st.columns(2, gap="large")
+with st.sidebar:
+    st.header("Filters")
+    user_types = st.multiselect(
+        "User type",
+        sorted(responses["User_Type"].dropna().unique()),
+        default=sorted(responses["User_Type"].dropna().unique()),
+    )
+    countries = st.multiselect(
+        "Country",
+        sorted(responses["Country"].dropna().unique()),
+        default=sorted(responses["Country"].dropna().unique()),
+    )
+    tools = st.multiselect(
+        "AI tool",
+        sorted(responses["AI_Tool"].dropna().unique()),
+        default=sorted(responses["AI_Tool"].dropna().unique()),
+    )
+    purposes = st.multiselect(
+        "Purpose",
+        sorted(responses["AI_Purpose"].dropna().unique()),
+        default=sorted(responses["AI_Purpose"].dropna().unique()),
+    )
+    genders = st.multiselect(
+        "Gender",
+        sorted(responses["Gender"].dropna().unique()),
+        default=sorted(responses["Gender"].dropna().unique()),
+    )
 
-with left_chart:
-    st.subheader("Most-used AI tools")
+filtered = responses[
+    responses["User_Type"].isin(user_types)
+    & responses["Country"].isin(countries)
+    & responses["AI_Tool"].isin(tools)
+    & responses["AI_Purpose"].isin(purposes)
+    & responses["Gender"].isin(genders)
+].copy()
+
+if filtered.empty:
+    st.warning("No responses match these filters. Select at least one value in each filter.")
+    st.stop()
+
+with st.sidebar:
+    st.divider()
+    st.caption(f"Showing {filtered['User_ID'].nunique():,} of {responses['User_ID'].nunique():,} respondents")
+
+respondent_count = filtered["User_ID"].nunique()
+average_satisfaction = filtered["Satisfaction_Score"].mean()
+average_time_saved = filtered["Time_Saved_Hours_Per_Week"].mean()
+recommend_rate = filtered["Would_Recommend"].eq("Yes").mean()
+average_usage = filtered["AI_Usage_Hours_Per_Day"].mean()
+
+overview_tab, tools_tab, outcomes_tab, responses_tab = st.tabs(
+    ["Overview", "Tools & purposes", "Outcomes", "Responses"]
+)
+
+with overview_tab:
+    kpi_columns = st.columns(4)
+    kpi_columns[0].metric("Survey responses", f"{respondent_count:,}")
+    kpi_columns[1].metric("Avg. satisfaction", f"{average_satisfaction:.1f} / 10")
+    kpi_columns[2].metric("Avg. time saved", f"{average_time_saved:.1f} hrs / week")
+    kpi_columns[3].metric("Would recommend", f"{recommend_rate:.0%}")
+    st.caption(f"Average reported AI use: {average_usage:.1f} hours per day.")
+
     tool_counts = (
-        filtered.loc[filtered["AI_Tool"] != "Not specified", "AI_Tool"]
-        .value_counts()
-        .rename_axis("AI tool")
-        .reset_index(name="Responses")
+        filtered.groupby("AI_Tool")["User_ID"]
+        .nunique()
+        .sort_values()
+        .rename("Respondents")
+        .reset_index()
     )
-    if tool_counts.empty:
-        st.caption("No tool responses are available for this selection.")
-    else:
+    user_type_counts = (
+        filtered.groupby("User_Type")["User_ID"]
+        .nunique()
+        .rename("Respondents")
+        .reset_index()
+    )
+
+    chart_columns = st.columns(2)
+    with chart_columns[0]:
         tool_chart = px.bar(
-            tool_counts.sort_values("Responses"),
-            x="Responses",
-            y="AI tool",
-            orientation="h",
-            color_discrete_sequence=CHART_COLORS,
-        )
-        tool_chart.update_layout(
-            height=390,
-            margin=dict(l=4, r=10, t=10, b=10),
-            showlegend=False,
-            xaxis_title="Responses",
-            yaxis_title=None,
-            plot_bgcolor="#f7f8fa",
-            paper_bgcolor="#e9eef4",
-            font_color="#202733",
-        )
-        tool_chart.update_xaxes(
-            showgrid=True, gridcolor="#dfe5ec", zeroline=False,
-            tickfont_color="#202733", title_font_color="#202733",
-        )
-        tool_chart.update_yaxes(showgrid=False, tickfont_color="#202733")
-        st.plotly_chart(tool_chart, use_container_width=True)
-
-with right_chart:
-    st.subheader("Why people use AI")
-    purpose_counts = (
-        filtered.loc[filtered["AI_Purpose"] != "Not specified", "AI_Purpose"]
-        .value_counts()
-        .rename_axis("Purpose")
-        .reset_index(name="Responses")
-    )
-    if purpose_counts.empty:
-        st.caption("No purpose responses are available for this selection.")
-    else:
-        purpose_chart = px.bar(
-            purpose_counts.sort_values("Responses"),
-            x="Responses",
-            y="Purpose",
-            orientation="h",
-            color_discrete_sequence=[CHART_COLORS[1]],
-        )
-        purpose_chart.update_layout(
-            height=390,
-            margin=dict(l=4, r=10, t=10, b=10),
-            showlegend=False,
-            xaxis_title="Responses",
-            yaxis_title=None,
-            plot_bgcolor="#f7f8fa",
-            paper_bgcolor="#e9eef4",
-            font_color="#202733",
-        )
-        purpose_chart.update_xaxes(
-            showgrid=True, gridcolor="#dfe5ec", zeroline=False,
-            tickfont_color="#202733", title_font_color="#202733",
-        )
-        purpose_chart.update_yaxes(showgrid=False, tickfont_color="#202733")
-        st.plotly_chart(purpose_chart, use_container_width=True)
-
-st.markdown("")
-lower_left, lower_right = st.columns(2, gap="large")
-
-with lower_left:
-    st.subheader("AI use and time saved")
-    scatter_data = filtered.dropna(
-        subset=["AI_Usage_Hours_Per_Day", "Time_Saved_Hours_Per_Week"]
-    )
-    if scatter_data.empty:
-        st.caption("Not enough complete responses to show this relationship.")
-    else:
-        scatter_chart = px.scatter(
-            scatter_data,
-            x="AI_Usage_Hours_Per_Day",
-            y="Time_Saved_Hours_Per_Week",
-            color="User_Type",
-            hover_data=["AI_Tool", "AI_Purpose"],
-            color_discrete_sequence=CHART_COLORS,
-            labels={
-                "AI_Usage_Hours_Per_Day": "AI use (hours / day)",
-                "Time_Saved_Hours_Per_Week": "Time saved (hours / week)",
-                "User_Type": "User type",
-            },
-        )
-        scatter_chart.update_traces(marker=dict(size=9, opacity=0.72))
-        scatter_chart.update_layout(
-            height=350,
-            margin=dict(l=4, r=10, t=10, b=10),
-            plot_bgcolor="#f7f8fa",
-            paper_bgcolor="#e9eef4",
-            font_color="#202733",
-            legend_title_text="",
-        )
-        scatter_chart.update_xaxes(
-            showgrid=True, gridcolor="#dfe5ec", rangemode="tozero",
-            tickfont_color="#202733", title_font_color="#202733",
-        )
-        scatter_chart.update_yaxes(
-            showgrid=True, gridcolor="#dfe5ec", rangemode="tozero",
-            tickfont_color="#202733", title_font_color="#202733",
-        )
-        st.plotly_chart(scatter_chart, use_container_width=True)
-
-with lower_right:
-    st.subheader("Satisfaction by AI tool")
-    satisfaction = (
-        filtered.loc[
-            (filtered["AI_Tool"] != "Not specified")
-            & filtered["Satisfaction_Score"].notna()
-        ]
-        .groupby("AI_Tool", as_index=False)["Satisfaction_Score"]
-        .mean()
-        .sort_values("Satisfaction_Score")
-    )
-    if satisfaction.empty:
-        st.caption("No satisfaction scores are available for this selection.")
-    else:
-        satisfaction_chart = px.bar(
-            satisfaction,
-            x="Satisfaction_Score",
+            tool_counts,
+            x="Respondents",
             y="AI_Tool",
             orientation="h",
-            color_discrete_sequence=[CHART_COLORS[3]],
-            labels={"Satisfaction_Score": "Average score (out of 10)", "AI_Tool": "AI tool"},
+            text="Respondents",
+            title="Most-used AI tools",
+            color_discrete_sequence=["#426b94"],
         )
-        satisfaction_chart.update_layout(
-            height=350,
-            margin=dict(l=4, r=10, t=10, b=10),
-            showlegend=False,
-            xaxis_range=[0, 10],
-            yaxis_title=None,
-            plot_bgcolor="#f7f8fa",
-            paper_bgcolor="#e9eef4",
-            font_color="#202733",
+        tool_chart.update_traces(textposition="outside")
+        st.plotly_chart(tool_chart, width="stretch")
+    with chart_columns[1]:
+        user_chart = px.pie(
+            user_type_counts,
+            names="User_Type",
+            values="Respondents",
+            hole=0.58,
+            title="Respondents by user type",
+            color_discrete_sequence=["#426b94", "#9ab5d0"],
         )
-        satisfaction_chart.update_xaxes(
-            showgrid=True, gridcolor="#dfe5ec", zeroline=False,
-            tickfont_color="#202733", title_font_color="#202733",
-        )
-        satisfaction_chart.update_yaxes(showgrid=False, tickfont_color="#202733")
-        st.plotly_chart(satisfaction_chart, use_container_width=True)
+        st.plotly_chart(user_chart, width="stretch")
 
-with st.expander("View filtered responses"):
-    st.caption(f"{len(filtered):,} responses · {len(df):,} total")
-    st.dataframe(filtered, use_container_width=True, hide_index=True)
+    top_tool = tool_counts.iloc[-1]
+    top_purpose = filtered["AI_Purpose"].value_counts().idxmax()
+    st.subheader("At a glance")
+    insight_columns = st.columns(3)
+    insight_columns[0].info(
+        f"**{top_tool['AI_Tool']}** is the most-used tool in this selection "
+        f"({int(top_tool['Respondents']):,} respondents)."
+    )
+    insight_columns[1].info(f"**{top_purpose}** is the most common reported purpose.")
+    insight_columns[2].info(
+        f"Respondents report an average of **{average_time_saved:.1f} hours saved per week**."
+    )
+
+with tools_tab:
+    st.subheader("Tool and purpose breakdown")
+    tool_counts = (
+        filtered["AI_Tool"]
+        .value_counts()
+        .rename_axis("AI tool")
+        .rename("Respondents")
+        .reset_index()
+    )
+    purpose_counts = (
+        filtered["AI_Purpose"]
+        .value_counts()
+        .rename_axis("Purpose")
+        .rename("Respondents")
+        .reset_index()
+    )
+    chart_columns = st.columns(2)
+    with chart_columns[0]:
+        st.plotly_chart(
+            px.bar(
+                tool_counts.sort_values("Respondents"),
+                x="Respondents",
+                y="AI tool",
+                orientation="h",
+                title="Responses by AI tool",
+                color_discrete_sequence=["#426b94"],
+            ),
+            width="stretch",
+        )
+    with chart_columns[1]:
+        st.plotly_chart(
+            px.bar(
+                purpose_counts.sort_values("Respondents"),
+                x="Respondents",
+                y="Purpose",
+                orientation="h",
+                title="Responses by purpose",
+                color_discrete_sequence=["#7b9aba"],
+            ),
+            width="stretch",
+        )
+
+    tool_summary = (
+        filtered.groupby("AI_Tool", as_index=False)
+        .agg(
+            Respondents=("User_ID", "nunique"),
+            Satisfaction=("Satisfaction_Score", "mean"),
+            Productivity=("Productivity_Score", "mean"),
+            Accuracy=("Accuracy_Rating", "mean"),
+            Time_saved_hours_per_week=("Time_Saved_Hours_Per_Week", "mean"),
+        )
+        .sort_values("Respondents", ascending=False)
+        .round(1)
+    )
+    st.dataframe(tool_summary, hide_index=True, width="stretch")
+
+with outcomes_tab:
+    st.subheader("Reported outcomes")
+    outcome_columns = st.columns(2)
+    with outcome_columns[0]:
+        st.plotly_chart(
+            px.scatter(
+                filtered,
+                x="AI_Usage_Hours_Per_Day",
+                y="Time_Saved_Hours_Per_Week",
+                color="User_Type",
+                hover_data=["AI_Tool", "AI_Purpose", "Productivity_Score"],
+                labels={
+                    "AI_Usage_Hours_Per_Day": "AI use (hours per day)",
+                    "Time_Saved_Hours_Per_Week": "Time saved (hours per week)",
+                    "User_Type": "User type",
+                },
+                title="AI use and reported time saved",
+                color_discrete_sequence=["#426b94", "#91abc5"],
+            ),
+            width="stretch",
+        )
+    with outcome_columns[1]:
+        recommendation_counts = (
+            filtered["Would_Recommend"]
+            .value_counts()
+            .rename_axis("Response")
+            .rename("Respondents")
+            .reset_index()
+        )
+        st.plotly_chart(
+            px.pie(
+                recommendation_counts,
+                names="Response",
+                values="Respondents",
+                hole=0.58,
+                title="Would respondents recommend AI tools?",
+                color_discrete_sequence=["#426b94", "#9ab5d0", "#d9e2ec"],
+            ),
+            width="stretch",
+        )
+
+    satisfaction_counts = (
+        filtered["Satisfaction_Score"]
+        .value_counts()
+        .sort_index()
+        .rename_axis("Satisfaction score")
+        .rename("Respondents")
+        .reset_index()
+    )
+    st.plotly_chart(
+        px.bar(
+            satisfaction_counts,
+            x="Satisfaction score",
+            y="Respondents",
+            title="Satisfaction score distribution",
+            color_discrete_sequence=["#56836f"],
+        ),
+        width="stretch",
+    )
+    st.caption("These are descriptive survey results; they do not establish cause and effect.")
+
+with responses_tab:
+    st.subheader("Filtered survey responses")
     st.download_button(
-        "Download filtered data",
+        "Download filtered responses",
         data=filtered.to_csv(index=False).encode("utf-8"),
-        file_name="ai_usage_filtered.csv",
+        file_name="ai_usage_survey_filtered.csv",
+        mime="text/csv",
+    )
+    st.dataframe(filtered, hide_index=True, width="stretch")
+
+    st.download_button(
+        "Download summary by AI tool",
+        data=tool_summary.to_csv(index=False).encode("utf-8"),
+        file_name="ai_usage_tool_summary.csv",
         mime="text/csv",
     )
